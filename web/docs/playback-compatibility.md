@@ -1,5 +1,10 @@
 # Playback and phone compatibility audit
 
+This is the earlier baseline audit. The proposed extension-free player is
+documented in [extension-free-playback.md](extension-free-playback.md), including
+its separate validation limits. Earlier playback requirements below describe
+the baseline, not the new optional IFrame path.
+
 Audited 2026-11-03. A successful website build establishes neither streaming
 service access nor iPhone playback. Branding has not been changed.
 

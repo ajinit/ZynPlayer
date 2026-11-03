@@ -140,6 +140,10 @@ export default function SettingsPage() {
 
         <h2 className={settingsUi.sectionHeader}>Playback</h2>
         <section className={settingsUi.group}>
+          <LinkRow to="/youtube" title="Playback mode and YouTube links" value="YouTube player / extension" />
+        </section>
+        <p className={settingsUi.footer}>Local music and the visible YouTube player work without an extension. AutoPlay radio, Crossfade, AutoMix and BitChord history reporting use the desktop extension engine.</p>
+        <section className={settingsUi.group}>
           <Toggle
             label="AutoPlay"
             detail="When the queue ends, keep playing similar music."

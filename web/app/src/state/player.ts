@@ -1,5 +1,8 @@
 import type { DetectedExtension } from '@bitchord/shared/bridge';
 import { create } from 'zustand';
+import { choosePlaybackBackend, isIPhoneSafari, readPlaybackMode, type PlaybackMode, type PlaybackBackend } from '@/playback/playbackMode';
+import { IFramePlayerAdapter } from '@/playback/youtube/IFramePlayerAdapter';
+import type { YouTubeSelection } from '@/playback/youtube/links';
 import type { Track } from '@/data/music/types';
 import { extensionQueryKey } from '@/extension/useExtension';
 import { artworkAtPixels } from '@/lib/artwork';
@@ -60,6 +63,12 @@ interface Settings {
 }
 
 interface PlayerState extends Settings {
+  playbackMode: PlaybackMode;
+  backend: PlaybackBackend | null;
+  youtubeSelection: YouTubeSelection | null;
+  playbackNotice: string | null;
+  setPlaybackMode: (mode: PlaybackMode) => void;
+  playYouTube: (selection: YouTubeSelection) => void;
   /** The whole timeline: what played, what plays, what's next (playback/queue/timeline.ts). */
   queue: QueueEntry[];
   /** The playing entry in [queue]; -1 when nothing is loaded. */
@@ -150,7 +159,7 @@ let active = 0;
 
 /** The audio element in front, if playback has started at least once. */
 export function getAudio(): HTMLAudioElement | null {
-  return decks?.[active]?.audio ?? null;
+  return usePlayer.getState().backend === 'extension' ? decks?.[active]?.audio ?? null : null;
 }
 
 /**
@@ -159,7 +168,14 @@ export function getAudio(): HTMLAudioElement | null {
  * beat clock, which loops and follows the tempo ramp (the element is paused
  * underneath). The lyrics and the seek bars read this.
  */
+export function getPlaybackDuration(): number {
+  return usePlayer.getState().backend === 'youtube' ? iframePlayer.duration() : getAudio()?.duration ?? 0;
+}
+
 export function getPlayhead(): { sec: number; paused: boolean } | null {
+  if (usePlayer.getState().backend === 'youtube') {
+    return { sec: iframePlayer.currentTime(), paused: usePlayer.getState().status !== 'playing' };
+  }
   const audio = getAudio();
   const { mixing, nowPlaying } = usePlayer.getState();
   if (mixing && graph && nowPlaying) {
@@ -188,12 +204,12 @@ function getDecks(): Promise<Deck[]> {
       const engine = new YouTubeEngine(audio);
       const deck: Deck = { engine, audio, gain: 1 };
       engine.onFatal = (videoId, message) => {
-        if (decks?.[active] !== deck) return;
+        if (usePlayer.getState().backend !== 'extension' || decks?.[active] !== deck) return;
         trackLog.e(`stopped: ${message}`, videoId);
         usePlayer.setState({ status: 'error', error: message });
       };
       engine.onRecovered = (track) => {
-        if (decks?.[active] !== deck) return;
+        if (usePlayer.getState().backend !== 'extension' || decks?.[active] !== deck) return;
         // Keep YouTube Music's title and artist: without the queue's track the
         // video's own ("Doja Cat - Woman" by "dojacatVEVO") would replace them.
         const { queue, index } = usePlayer.getState();
@@ -252,7 +268,7 @@ function ensureAutomix(): Promise<AutomixGraph | null> {
         back: () => routed[1 - active]!,
         current: () => {
           // A party doesn't mix: every member would blend on their own clock (the phone stops too).
-          if (partyHooks?.inParty()) return null;
+          if (usePlayer.getState().backend !== 'extension' || partyHooks?.inParty()) return null;
           const { queue, index, status } = usePlayer.getState();
           const entry = queue[index];
           return entry && status === 'playing' ? queued(entry) : null;
@@ -354,13 +370,13 @@ function automixHandoff() {
 
 /** Starts or stops the mix loop to match the setting; the first start builds the graph. */
 function syncAutomix() {
-  if (!usePlayer.getState().automix) {
+  if (usePlayer.getState().backend !== 'extension' || !usePlayer.getState().automix) {
     graph?.dj.stop();
     return;
   }
   void ensureAutomix().then((g) => {
     const { automix, automixBars } = usePlayer.getState();
-    if (!g || !automix) return;
+    if (!g || !automix || usePlayer.getState().backend !== 'extension') return;
     void g.ctx.resume();
     g.dj.transitionBars = automixBars;
     g.dj.start();
@@ -419,6 +435,32 @@ let canonical: Map<string, number> | null = null;
 
 export const usePlayer = create<PlayerState>()((set, get) => ({
   ...loadSettings(),
+  playbackMode: readPlaybackMode(),
+  backend: null,
+  youtubeSelection: null,
+  playbackNotice: null,
+  setPlaybackMode(playbackMode) {
+    stopPlayback();
+    set({ playbackMode });
+    try { localStorage.setItem('zynplayer:playback-mode', playbackMode); } catch { /* Private browsing can deny storage. */ }
+  },
+  playYouTube(selection) {
+    get().setPlaybackMode('youtube');
+    if (selection.kind === 'video') {
+      const track: Track = {
+        videoId: selection.videoId, title: 'YouTube video', artists: [], album: null,
+        durationSec: null, explicit: false, thumbnail: null, index: null, plays: null,
+      };
+      set({ queue: [asEntry(track, 'context', { title: 'YouTube link', type: 'other' })] });
+      void startAt(0, { startSec: selection.startSeconds, autoplay: false });
+    } else {
+      set({
+        queue: [], index: -1, backend: 'youtube', youtubeSelection: selection, status: 'loading', error: null,
+        nowPlaying: { videoId: '', title: 'YouTube playlist', artist: '', artworkUrl: null, durationSec: 0, streamInfo: 'YouTube IFrame', stream: null },
+      });
+      iframePlayer.select(selection);
+    }
+  },
   queue: [],
   index: -1,
   nowPlaying: null,
@@ -515,10 +557,13 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   },
 
   next() {
+    if (get().backend === 'youtube' && get().youtubeSelection?.kind === 'playlist') return iframePlayer.next();
     void advance(false).then(intent);
   },
 
   previous() {
+    if (get().backend === 'youtube' && get().youtubeSelection?.kind === 'playlist') return iframePlayer.previous();
+    if (get().backend === 'youtube' && iframePlayer.currentTime() > BACK_RESTARTS_AFTER_SEC) return get().seek(0);
     const { index, queue, repeat } = get();
     const audio = getAudio();
     if (audio && audio.currentTime > BACK_RESTARTS_AFTER_SEC) return get().seek(0);
@@ -529,6 +574,15 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   },
 
   togglePlay() {
+    if (get().backend === 'youtube') {
+      if (get().status === 'error') {
+        set({ playbackNotice: 'Use Retry below the YouTube player, or open the video on YouTube.' });
+      } else if (get().status === 'playing' || get().status === 'buffering') {
+        iframePlayer.pause();
+        set({ status: 'paused' });
+      } else iframePlayer.play();
+      return;
+    }
     // A loop mix holds both elements paused: settle it onto a playing song first.
     if (graph?.dj.loopMixing) cancelCrossfade();
     const audio = getAudio();
@@ -553,6 +607,8 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   },
 
   seek(seconds) {
+    if (get().backend === 'youtube') return iframePlayer.seek(seconds);
+    if (!Number.isFinite(seconds)) return;
     const audio = getAudio();
     if (!audio) return;
     cancelCrossfade();
@@ -647,6 +703,44 @@ if (import.meta.env.DEV) {
   });
 }
 
+/** Mounted by the shell in a visible, persistent surface across route changes. */
+export const iframePlayer = new IFramePlayerAdapter({
+  snapshot(snapshot) {
+    const state = usePlayer.getState();
+    if (state.backend !== 'youtube' || state.status === 'error') return;
+    const now = state.nowPlaying;
+    if (!now) return;
+    const status: PlayerStatus = snapshot.state === 1 ? 'playing'
+      : snapshot.state === 3 ? 'buffering' : 'paused';
+    const next = {
+      ...now, videoId: snapshot.videoId || now.videoId,
+      title: snapshot.title || now.title, artist: snapshot.author || now.artist,
+      durationSec: snapshot.duration,
+    };
+    if (state.status !== status || now.videoId !== next.videoId || now.title !== next.title || now.artist !== next.artist || now.durationSec !== next.durationSec) {
+      usePlayer.setState({ status, nowPlaying: next });
+    }
+  },
+  ended() { if (usePlayer.getState().backend === 'youtube') void advance(true); },
+  error(error) { if (usePlayer.getState().backend === 'youtube') usePlayer.setState({ status: 'error', error }); },
+  notice(playbackNotice) {
+    if (usePlayer.getState().backend === 'youtube' && usePlayer.getState().playbackNotice !== playbackNotice) usePlayer.setState({ playbackNotice });
+  },
+});
+
+/** Cancels pending loads too, so a late extension response cannot interrupt local audio. */
+export function stopPlayback(): void {
+  ++loadToken;
+  cancelCrossfade();
+  graph?.dj.stop();
+  for (const deck of decks ?? []) {
+    deck.audio.pause();
+    void deck.engine.stop().catch(() => {});
+  }
+  iframePlayer.stop();
+  usePlayer.setState({ backend: null, youtubeSelection: null, nowPlaying: null, status: 'idle', error: null, playbackNotice: null, mixing: false, automixState: null });
+}
+
 function positions(queue: readonly QueueEntry[]): Map<string, number> {
   return new Map(queue.map((e, i) => [e.entryId, i]));
 }
@@ -674,20 +768,38 @@ async function startAt(at: number, { startSec = 0, auto = false, autoplay = true
   cancelCrossfade();
   const token = ++loadToken;
 
+  const backend = choosePlaybackBackend(state.playbackMode, extensionReady(), isIPhoneSafari());
+  if (backend === 'youtube') {
+    graph?.dj.stop();
+    for (const deck of decks ?? []) {
+      deck.audio.pause();
+      void deck.engine.stop().catch(() => {});
+    }
+    const selection: YouTubeSelection = { kind: 'video', videoId: entry.track.videoId, startSeconds: startSec };
+    usePlayer.setState({
+      index: at, backend, youtubeSelection: selection, nowPlaying: hintOf(entry.track),
+      status: 'loading', error: null, mixing: false, automixState: null,
+    });
+    iframePlayer.select(selection, autoplay);
+    return;
+  }
+  iframePlayer.stop();
   if (!extensionReady()) {
     usePlayer.setState({
+      backend: null, youtubeSelection: null,
       index: at,
       nowPlaying: { ...hintOf(entry.track), title: entry.track.title || 'Can’t play this here yet' },
       status: 'error',
-      error: 'YouTube playback needs the BitChord extension.',
+      error: 'Extension mode needs the BitChord extension. Choose YouTube player or Local music to play without one.',
     });
     return;
   }
 
-  usePlayer.setState({ index: at, nowPlaying: hintOf(entry.track), status: 'loading', error: null });
+  usePlayer.setState({ index: at, backend: 'extension', youtubeSelection: null, playbackNotice: null, nowPlaying: hintOf(entry.track), status: 'loading', error: null });
   updateMediaSession(usePlayer.getState().nowPlaying);
   try {
     const all = await getDecks();
+    if (token !== loadToken) return;
     const deck = all[active]!;
     all[1 - active]!.engine.stop().catch(() => {});
     deck.gain = 1;
@@ -744,6 +856,10 @@ async function advance(auto: boolean): Promise<void> {
     return;
   }
   if (plan.kind === 'repeat-one') {
+    if (usePlayer.getState().backend === 'youtube') {
+      await startAt(usePlayer.getState().index);
+      return;
+    }
     const audio = getAudio();
     if (audio) {
       audio.currentTime = 0;
@@ -789,6 +905,7 @@ const exhaustedSeeds = new Set<string>();
  * queue watchdog, ensureAutoplay).
  */
 function refillAutoplay(force = false, anySeed = false): Promise<void> {
+  if (usePlayer.getState().backend !== 'extension') return Promise.resolve();
   const { autoplay, repeat, queue, index } = usePlayer.getState();
   if (!autoplay || repeat !== 'off' || index < 0) return Promise.resolve();
   // A party's AutoPlay goes through the server (party/partySync.ts), never straight onto this queue.
@@ -824,7 +941,7 @@ function refillAutoplay(force = false, anySeed = false): Promise<void> {
       }
       const source: QueueSource = { title: `${seed.title} Radio`, type: 'radio', id: `RDAMVM${seed.videoId}` };
       // Still on the same track? One that moved on gets its own top-up.
-      if (current.queue[current.index]?.track.videoId !== playing.videoId || !current.autoplay) {
+      if (current.backend !== 'extension' || current.queue[current.index]?.track.videoId !== playing.videoId || !current.autoplay) {
         autoplaySeed = null;
         return;
       }
@@ -898,7 +1015,7 @@ function cancelCrossfade() {
 /** Called as the track in front plays: within the crossfade length of its end, start the next one underneath. */
 function maybeCrossfade() {
   const state = usePlayer.getState();
-  if (!decks || fade || state.automix || !state.crossfadeSec || state.status !== 'playing') return;
+  if (state.backend !== 'extension' || !decks || fade || state.automix || !state.crossfadeSec || state.status !== 'playing') return;
   const front = decks[active]!;
   const remaining = front.audio.duration - front.audio.currentTime;
   if (!Number.isFinite(remaining) || remaining > state.crossfadeSec || remaining < 1) return;
@@ -994,7 +1111,7 @@ function bindElement(deck: Deck, n: number) {
   const element = deck.audio;
   const inFront = () => active === n;
   const set = (status: PlayerStatus) => {
-    if (!inFront() || holding) return;
+    if (usePlayer.getState().backend !== 'extension' || !inFront() || holding) return;
     if (usePlayer.getState().status === 'error' && status !== 'playing') return;
     usePlayer.setState({ status });
   };
@@ -1004,7 +1121,7 @@ function bindElement(deck: Deck, n: number) {
   });
   element.addEventListener('waiting', () => set('buffering'));
   element.addEventListener('ended', () => {
-    if (!inFront() || holding) return;
+    if (usePlayer.getState().backend !== 'extension' || !inFront() || holding) return;
     endedListeners.forEach((listener) => listener());
     // The track ran out before the crossfade's next one could start: give up
     // on the fade and play the next track here. Waiting on it was silence for
@@ -1017,7 +1134,7 @@ function bindElement(deck: Deck, n: number) {
     void advance(true).then(intent);
   });
   element.addEventListener('timeupdate', () => {
-    if (!inFront()) return;
+    if (usePlayer.getState().backend !== 'extension' || !inFront()) return;
     maybeCrossfade();
     ensureAutoplay();
   });
@@ -1098,6 +1215,11 @@ const PARTY_SOURCE: QueueSource = { title: 'Listen Together', type: 'queue' };
 export const partyPlayer = {
   /** Puts the party's running order on the player at [index], at [startSec]; starts it only when [play]. */
   load(tracks: Track[], tiers: ('user' | 'autoplay')[], index: number, startSec: number, play: boolean): Promise<void> {
+    if (choosePlaybackBackend(usePlayer.getState().playbackMode, extensionReady(), isIPhoneSafari()) === 'youtube') {
+      stopPlayback();
+      usePlayer.setState({ status: 'error', error: 'Listen Together currently needs desktop extension mode. YouTube links play individually in the YouTube player.' });
+      return Promise.resolve();
+    }
     canonical = null;
     usePlayer.setState({ queue: tracks.map((t, i) => asEntry(t, tiers[i] ?? 'user', PARTY_SOURCE)) });
     return startAt(index, { startSec, autoplay: play });

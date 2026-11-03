@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
-import { usePlayer } from '@/state/player';
+import { stopPlayback, usePlayer } from '@/state/player';
 
 /** User-selected audio stays on this device. No streaming-service requests. */
 export default function LocalMusicPage() {
@@ -41,8 +41,7 @@ export default function LocalMusicPage() {
           <section aria-label="Local audio player" className="flex min-w-0 flex-col gap-3">
             <h2 className="type-title-3-emphasized [overflow-wrap:anywhere]">{file.name}</h2>
             <audio ref={audio} src={source || undefined} controls preload="metadata" className="w-full" onPlay={() => {
-              const player = usePlayer.getState();
-              if (player.status === 'playing' || player.status === 'buffering') player.togglePlay();
+              stopPlayback();
             }} onError={() => setError('This file could not be played. Try a supported, unprotected MP3 or AAC file.')} />
             {error && <p role="alert" className="type-body text-red">{error}</p>}
             <p className="type-callout text-secondary">Tap Play to start each file. Background and lock-screen playback depend on your device. Files must be selected again after leaving this page or reloading.</p>

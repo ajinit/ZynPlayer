@@ -8,6 +8,8 @@ import { Outlet, useLocation } from 'react-router';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { useExtension } from '@/extension/useExtension';
 import { isMobileBrowser } from '@/lib/platform';
+import { iframePlayer, usePlayer } from '@/state/player';
+import { YouTubeSurface } from './YouTubeSurface';
 import { useUi } from '@/state/ui';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { Banner, bannerButtonClass } from './Banner';
@@ -27,7 +29,11 @@ const FullScreenPlayer = lazy(() => import('./FullScreenPlayer').then((m) => ({ 
  * player pill, the side panel, and the bottom band when there is one.
  */
 export function AppShell() {
-  const localMusic = useLocation().pathname === '/local';
+  const pathname = useLocation().pathname;
+  const localMusic = pathname === '/local';
+  const youtube = usePlayer((s) => s.backend === 'youtube');
+  const drawerOpen = useUi((s) => s.drawerOpen);
+  const sidePanel = useUi((s) => s.sidePanel);
   useKeyboardShortcuts();
   useDiscordPresence();
   // Listen Together: pick a party back up after a reload, and keep the player in step with it.
@@ -43,28 +49,32 @@ export function AppShell() {
   const bannerDismissed = useUi((s) => s.installBannerDismissed);
   const dismissBanner = useUi((s) => s.dismissInstallBanner);
   const fullScreen = useUi((s) => s.fullScreen);
+  useEffect(() => {
+    if (youtube && (drawerOpen || sidePanel || fullScreen)) iframePlayer.pause();
+  }, [youtube, drawerOpen, sidePanel, fullScreen]);
+
 
   let banner = null;
-  if (!localMusic && mobile) {
+  if (!localMusic && pathname !== '/youtube' && !youtube && mobile) {
     banner = (
       <Banner
-        title="Mobile playback has limits."
-        detail="Local music works without an extension. iPhone cannot install this Chrome/Firefox extension; Firefox Android playback is unverified."
+        title="Play without an extension."
+        detail="Use the visible YouTube player or choose Local music. Keep YouTube in the foreground and tap Play to start."
         action={
-          <PrefetchLink className={bannerButtonClass} to="/local">
-            Play local music
+          <PrefetchLink className={bannerButtonClass} to="/youtube">
+            YouTube player
           </PrefetchLink>
         }
       />
     );
-  } else if (!localMusic && extension.state === 'missing' && !bannerDismissed) {
+  } else if (!localMusic && pathname !== '/youtube' && !youtube && extension.state === 'missing' && !bannerDismissed) {
     banner = (
       <Banner
-        title="Play YouTube Music with the BitChord extension."
-        detail="Playback, YouTube Music sign-in, Spotify and Discord need the extension. Addons and lyrics work without it."
+        title="Choose how to play."
+        detail="YouTube links and Local music play without an extension. Catalog search and account integrations use the desktop extension."
         action={
-          <PrefetchLink className={bannerButtonClass} to="/extension">
-            Get the Extension
+          <PrefetchLink className={bannerButtonClass} to="/youtube">
+            Playback options
           </PrefetchLink>
         }
         onDismiss={dismissBanner}
@@ -73,7 +83,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="grid h-dvh grid-rows-[minmax(0,1fr)_auto]">
+    <div className="grid h-dvh grid-rows-[minmax(0,1fr)_auto_auto]">
       {/* The side panel slides in from beyond the right edge; never let it scroll the page. */}
       <div className="relative min-h-0 overflow-hidden">
         <Sidebar />
@@ -84,16 +94,17 @@ export function AppShell() {
           className="absolute inset-0 overflow-x-hidden overflow-y-auto pl-(--web-navigation-width) [scrollbar-gutter:stable] data-tint:bg-(--page-tint) data-tint:transition-[background-color] data-tint:duration-300 data-tint:ease-in max-sm:pt-(--mobile-top-bar-height) max-sm:pl-0"
         >
           {/* Clears the floating pill: its height, its offset, and some air. */}
-          <div className="min-h-full pb-[calc(var(--player-pill-height)+var(--player-bottom-offset)+40px)]">
+          <div className={youtube || localMusic ? "min-h-full pb-10" : "min-h-full pb-[calc(var(--player-pill-height)+var(--player-bottom-offset)+40px)]"}>
             <Outlet />
           </div>
         </main>
-        {!localMusic && <PlayerBar />}
-        {!localMusic && <MobilePlayer />}
+        {!localMusic && !youtube && <PlayerBar />}
+        {!localMusic && !youtube && <MobilePlayer />}
         <SidePanel />
       </div>
+      {youtube && <YouTubeSurface />}
       {banner}
-      {fullScreen && (
+      {fullScreen && !youtube && (
         <Suspense fallback={null}>
           <FullScreenPlayer />
         </Suspense>
