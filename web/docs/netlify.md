@@ -61,3 +61,11 @@ output. Original copyright/license files remain unchanged and are copied verbati
 `COMMIT_REF` so it identifies the deployed version. The site bundles GPL/AGPL and
 third-party code: preserve notices and make the deployed version's corresponding
 source available, including future modifications.
+
+## Extension-free player increment
+
+The optional official YouTube player uses /youtube and requires no additional
+Netlify environment variables or backend. See [extension-free-playback.md](extension-free-playback.md)
+for behavior and current validation limits. The earlier build results above do
+not verify this increment. Keep production publishing unchanged; review the PR
+and its checks before any deployment.
