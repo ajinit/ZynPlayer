@@ -101,6 +101,7 @@ export class IFramePlayerAdapter {
   private generation = 0;
   private selection: YouTubeSelection | null = null;
   private autoplay = false;
+  private surfaceVisible = true;
 
   constructor(private callbacks: Callbacks, private loadAPI = loadIFrameAPI) {}
 
@@ -135,7 +136,7 @@ export class IFramePlayerAdapter {
           },
           onStateChange: ({ data }) => {
             if (!active() || !this.ready || !this.selection) return;
-            if (data === 1 && document.hidden) { visible(); return; }
+            if (data === 1 && (document.hidden || !this.surfaceVisible)) { this.pause(); return; }
             this.report();
             // YouTube itself advances a linked playlist. App queues advance only individual videos.
             if (data === 0 && this.selection.kind === 'video') this.callbacks.ended();
@@ -174,11 +175,11 @@ export class IFramePlayerAdapter {
     if (!this.ready || !this.player || !this.selection) return;
     if (this.selection.kind === 'video') {
       const options = { videoId: this.selection.videoId, startSeconds: this.selection.startSeconds };
-      if (this.autoplay && !document.hidden) this.player.loadVideoById(options);
+      if (this.autoplay && !document.hidden && this.surfaceVisible) this.player.loadVideoById(options);
       else this.player.cueVideoById(options);
     } else {
       const options = { listType: 'playlist' as const, list: this.selection.playlistId, index: this.selection.index, startSeconds: this.selection.startSeconds };
-      if (this.autoplay && !document.hidden) this.player.loadPlaylist(options);
+      if (this.autoplay && !document.hidden && this.surfaceVisible) this.player.loadPlaylist(options);
       else this.player.cuePlaylist(options);
     }
   }
@@ -193,9 +194,16 @@ export class IFramePlayerAdapter {
       duration: this.duration(), seconds: this.currentTime(), state,
     });
   }
+  setVisible(visible: boolean): void {
+    this.surfaceVisible = visible;
+    if (!visible) {
+      this.pause();
+      this.callbacks.notice('Keep the whole YouTube video visible, then tap Play to continue.');
+    }
+  }
   play(): void {
     this.autoplay = true;
-    if (document.hidden) return;
+    if (document.hidden || !this.surfaceVisible) return;
     if (this.ready) this.player?.playVideo();
   }
   pause(): void {

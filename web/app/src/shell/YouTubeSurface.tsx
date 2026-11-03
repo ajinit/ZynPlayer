@@ -22,10 +22,7 @@ export function YouTubeSurface() {
     const element = host.current;
     if (!element || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry && entry.intersectionRatio < 0.98 && usePlayer.getState().status === 'playing') {
-        iframePlayer.pause();
-        usePlayer.setState({ playbackNotice: 'Keep the whole YouTube video visible, then tap Play to continue.' });
-      }
+      if (entry) iframePlayer.setVisible(entry.intersectionRatio >= 0.98);
     }, { threshold: [0, 0.98, 1] });
     observer.observe(element);
     return () => observer.disconnect();

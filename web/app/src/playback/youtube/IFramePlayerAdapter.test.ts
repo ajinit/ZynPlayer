@@ -32,7 +32,7 @@ describe('visible YouTube adapter', () => {
     Object.defineProperty(document, 'hidden', { configurable: true, value: false });
     adapter = new IFramePlayerAdapter(callbacks, async () => api);
   });
-  afterEach(() => { release?.(); release = undefined; vi.useRealTimers(); });
+  afterEach(() => { release?.(); release = undefined; vi.useRealTimers(); vi.restoreAllMocks(); });
   async function attach() {
     release = adapter.attach(document.createElement('div'));
     await Promise.resolve();
@@ -111,6 +111,21 @@ describe('visible YouTube adapter', () => {
     document.dispatchEvent(new Event('visibilitychange'));
     expect(player.playVideo).not.toHaveBeenCalled();
   });
+  it('refuses playback while the video surface is outside the viewport', async () => {
+    await attach();
+    events.onReady();
+    adapter.select(video);
+    adapter.setVisible(false);
+    adapter.play();
+    expect(player.playVideo).not.toHaveBeenCalled();
+    player.getPlayerState.mockReturnValue(1);
+    events.onStateChange({ data: 1 });
+    expect(player.pauseVideo).toHaveBeenCalled();
+    adapter.setVisible(true);
+    expect(player.playVideo).not.toHaveBeenCalled();
+    adapter.play();
+    expect(player.playVideo).toHaveBeenCalledOnce();
+  });
   it('destroys the player, stops polling, and cancels selections on stop', async () => {
     await attach();
     events.onReady();
@@ -151,19 +166,22 @@ describe('visible YouTube adapter', () => {
   it('loads only the official script, reports network failure, and allows a retry', async () => {
     const host = window as Window & { YT?: IFrameAPI; onYouTubeIframeAPIReady?: () => void };
     delete host.YT;
+    const scripts: HTMLScriptElement[] = [];
+    // Keep scripts detached: the test never executes or fetches YouTube code.
+    const append = vi.spyOn(document.head, 'append').mockImplementation((...nodes) => {
+      scripts.push(nodes[0] as HTMLScriptElement);
+    });
     const pending = loadIFrameAPI();
     const failure = expect(pending).rejects.toThrow('YouTube could not load');
-    const script = document.querySelector<HTMLScriptElement>('script[src="https://www.youtube.com/iframe_api"]')!;
-    expect(script).not.toBeNull();
-    script.dispatchEvent(new Event('error'));
+    expect(scripts[0]!.src).toBe('https://www.youtube.com/iframe_api');
+    scripts[0]!.dispatchEvent(new Event('error'));
     await failure;
-    expect(script.isConnected).toBe(false);
     const retry = loadIFrameAPI();
-    const retryScript = document.querySelector<HTMLScriptElement>('script[src="https://www.youtube.com/iframe_api"]')!;
+    expect(append).toHaveBeenCalledTimes(2);
+    expect(scripts[1]).not.toBe(scripts[0]);
     host.YT = api;
     host.onYouTubeIframeAPIReady!();
     expect(await retry).toBe(api);
-    retryScript.remove();
     delete host.YT;
   });
   it.each([2, 5, 100, 101, 150, 153, 999])('explains YouTube error %s', (code) => {
