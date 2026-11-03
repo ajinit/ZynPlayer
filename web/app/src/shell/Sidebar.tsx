@@ -31,6 +31,7 @@ interface NavItem {
 }
 
 const PRIMARY: NavItem[] = [
+  { to: '/youtube', label: 'YouTube player', Icon: SongsIcon },
   { to: '/local', label: 'Local music', Icon: SongsIcon },
   { to: '/search', label: 'Search', Icon: SearchIcon },
   { to: '/home', label: 'Home', Icon: HomeIcon },

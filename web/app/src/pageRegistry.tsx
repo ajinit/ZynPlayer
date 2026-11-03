@@ -24,6 +24,7 @@ interface PageRoute {
  * so links can warm a route's chunk on hover or focus, before the click.
  */
 export const pages: PageRoute[] = [
+  { path: '/youtube', load: () => import('@/pages/YouTubePage'), skeleton: <PlainSkeleton /> },
   { path: '/local', load: () => import('@/pages/LocalMusicPage'), skeleton: <PlainSkeleton /> },
   { path: '/home', load: () => import('@/pages/HomePage'), skeleton: <HomeSkeleton /> },
   { path: '/new', load: () => import('@/pages/NewPage'), skeleton: <NewSkeleton /> },

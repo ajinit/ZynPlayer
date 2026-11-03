@@ -196,6 +196,7 @@ function close(): void {
 }
 
 function sample(): void {
+  if (usePlayer.getState().backend === 'youtube') { opening = null; close(); return; }
   const { nowPlaying, status } = usePlayer.getState();
   const videoId = nowPlaying?.videoId ?? null;
   if (session && session.videoId !== videoId) close();

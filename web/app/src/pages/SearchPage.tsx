@@ -164,7 +164,10 @@ export default function SearchPage() {
       <div className="sticky top-0 z-[calc(var(--z-default)+5)] flex justify-center px-(--body-gutter) py-3 before:absolute before:inset-0 before:-z-1 before:bg-header-material before:[backdrop-filter:saturate(180%)_blur(20px)]">
         <SearchField initial={query} onSearch={(q) => setParams(q ? { q } : {})} />
       </div>
-      {missing ? <NeedsExtension what="and search YouTube Music" /> : query ? <Results query={query} /> : <Landing />}
+      {missing ? <div className="mx-(--body-gutter) mt-5 flex flex-col gap-4">
+        <PrefetchLink to="/youtube" className="inline-flex min-h-11 items-center rounded-[8px] bg-quinary px-4 type-body">Paste a YouTube link or search your saved links</PrefetchLink>
+        <NeedsExtension what="and search the YouTube Music catalog" />
+      </div> : query ? <Results query={query} /> : <Landing />}
     </>
   );
 }
