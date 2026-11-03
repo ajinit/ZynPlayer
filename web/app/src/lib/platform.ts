@@ -1,6 +1,5 @@
 /**
- * Mobile browsers can't install the extension, so they get the Android app
- * banner instead of the install prompt (prompt §1).
+ * Device hint for layout messaging only. It does not establish extension or playback support.
  */
 export function isMobileBrowser(): boolean {
   const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;

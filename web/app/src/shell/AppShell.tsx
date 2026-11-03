@@ -4,15 +4,15 @@ import { startPartySync } from '@/party/partySync';
 import { useDiscordPresence } from '@/playback/discordPresence';
 import { startHistoryReporting } from '@/playback/historyReporting';
 import { startLivePresence } from '@/playback/livePresence';
-import { Outlet } from 'react-router';
+import { Outlet, useLocation } from 'react-router';
 import { PrefetchLink } from '@/components/PrefetchLink';
-import { config } from '@/config';
 import { useExtension } from '@/extension/useExtension';
 import { isMobileBrowser } from '@/lib/platform';
 import { useUi } from '@/state/ui';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { Banner, bannerButtonClass } from './Banner';
 import { MobileTopBar } from './MobileTopBar';
+import { MobilePlayer } from './MobilePlayer';
 import { PlayerBar } from './PlayerBar';
 import { SidePanel } from './SidePanel';
 import { Sidebar } from './Sidebar';
@@ -27,6 +27,7 @@ const FullScreenPlayer = lazy(() => import('./FullScreenPlayer').then((m) => ({ 
  * player pill, the side panel, and the bottom band when there is one.
  */
 export function AppShell() {
+  const localMusic = useLocation().pathname === '/local';
   useKeyboardShortcuts();
   useDiscordPresence();
   // Listen Together: pick a party back up after a reload, and keep the player in step with it.
@@ -44,19 +45,19 @@ export function AppShell() {
   const fullScreen = useUi((s) => s.fullScreen);
 
   let banner = null;
-  if (mobile) {
+  if (!localMusic && mobile) {
     banner = (
       <Banner
-        title="BitChord is better in the app."
-        detail="Phone browsers can’t run the BitChord extension. The Android app has everything."
+        title="Mobile playback has limits."
+        detail="Local music works without an extension. iPhone cannot install this Chrome/Firefox extension; Firefox Android playback is unverified."
         action={
-          <a className={bannerButtonClass} href={config.androidAppUrl} target="_blank" rel="noreferrer">
-            Get the App
-          </a>
+          <PrefetchLink className={bannerButtonClass} to="/local">
+            Play local music
+          </PrefetchLink>
         }
       />
     );
-  } else if (extension.state === 'missing' && !bannerDismissed) {
+  } else if (!localMusic && extension.state === 'missing' && !bannerDismissed) {
     banner = (
       <Banner
         title="Play YouTube Music with the BitChord extension."
@@ -72,7 +73,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="grid h-full grid-rows-[minmax(0,1fr)_auto]">
+    <div className="grid h-dvh grid-rows-[minmax(0,1fr)_auto]">
       {/* The side panel slides in from beyond the right edge; never let it scroll the page. */}
       <div className="relative min-h-0 overflow-hidden">
         <Sidebar />
@@ -87,7 +88,8 @@ export function AppShell() {
             <Outlet />
           </div>
         </main>
-        <PlayerBar />
+        {!localMusic && <PlayerBar />}
+        {!localMusic && <MobilePlayer />}
         <SidePanel />
       </div>
       {banner}

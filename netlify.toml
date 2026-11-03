@@ -1,0 +1,15 @@
+[build]
+  base = "web"
+  # Netlify supplies these public origins for production and deploy previews.
+  command = 'BITCHORD_SITE_ORIGINS="$DEPLOY_PRIME_URL,$URL" DISCORD_PRESENCE=0 corepack pnpm build:site'
+  publish = "app/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  PNPM_FLAGS = "--frozen-lockfile"
+
+# Serve existing assets normally; route client-side navigation to React.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

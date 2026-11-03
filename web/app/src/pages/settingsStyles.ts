@@ -5,7 +5,7 @@
 
 const row = 'relative flex items-center justify-between px-4 py-[11px] type-title-3 hairline-[16px]';
 const integration = 'relative grid items-center gap-x-3 px-4 py-[11px] type-title-3 hairline-[52px]';
-const field = 'w-[220px] flex-none rounded-[8px] border-0 bg-quaternary px-2.5 py-[5px] type-body text-primary';
+const field = 'w-[220px] max-w-full min-w-0 flex-none rounded-[8px] border-0 bg-quaternary px-2.5 py-[5px] type-body text-primary';
 
 export const settingsUi = {
   /** The page title and its rows as one column, centred in the page. */
@@ -17,7 +17,7 @@ export const settingsUi = {
 
   row,
   /** A row holding a switch, a select or a field: the whole row is its label. */
-  controlRow: `${row} cursor-pointer gap-4`,
+  controlRow: `${row} cursor-pointer gap-4 max-sm:flex-wrap`,
   rowText: 'flex flex-col gap-0.5',
   rowDetail: 'type-callout text-secondary',
   value: 'inline-flex items-center gap-1.5 text-right type-body-reduced text-secondary',

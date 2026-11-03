@@ -15,11 +15,11 @@ interface BannerProps {
 export function Banner({ title, detail, action, onDismiss }: BannerProps) {
   return (
     <div
-      className="relative z-(--z-web-chrome) flex min-h-[71px] items-center gap-4 bg-key-bg px-[30px] py-3 text-white max-sm:pr-4 max-sm:pl-5"
+      className="relative z-(--z-web-chrome) flex min-h-[71px] items-center gap-4 bg-key-bg px-[30px] py-3 text-white max-sm:flex-wrap max-sm:gap-2 max-sm:pr-4 max-sm:pl-5 pb-[max(12px,env(safe-area-inset-bottom,0px))]"
       role="region"
       aria-label={title}
     >
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 max-sm:basis-full">
         <p className="type-title-2-emphasized max-sm:type-[700_15px/20px]">{title}</p>
         <p className="mt-0.5 type-callout-medium opacity-90">{detail}</p>
       </div>

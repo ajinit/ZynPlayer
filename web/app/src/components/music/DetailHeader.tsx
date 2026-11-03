@@ -58,7 +58,7 @@ export function DetailHeader({ info, onPlay, onShuffle, canPlay, extra, motion }
         )}
       </div>
       <div className="flex flex-col pt-[37px] [grid-area:headings] max-md:items-center max-md:pt-5">
-        <h1 className="flex items-center type-large-title-emphasized leading-[30px] max-md:justify-center">
+        <h1 className="flex min-w-0 max-w-full items-center [overflow-wrap:anywhere] type-large-title-emphasized leading-[30px] max-md:justify-center">
           {info.title}
           {info.explicit && <ExplicitBadge size={16} />}
         </h1>
@@ -95,7 +95,7 @@ export function DetailHeader({ info, onPlay, onShuffle, canPlay, extra, motion }
           )}
         </div>
       )}
-      <div className="mt-3.5 flex items-center gap-3.5 self-end [grid-area:actions]">
+      <div className="mt-3.5 flex max-w-full flex-wrap justify-center items-center gap-3.5 self-end [grid-area:actions]">
         <button className={detailButton.circle} aria-label="Shuffle" onClick={onShuffle} disabled={!canPlay}>
           <Shuffle size={18} strokeWidth={2.2} />
         </button>

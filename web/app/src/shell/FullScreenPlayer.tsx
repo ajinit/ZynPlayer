@@ -234,7 +234,7 @@ export function FullScreenPlayer() {
     <div
       // Over everything but menus and dialogs, which portal above it. The on-dark colours come from tokens.css (data-full-screen).
       // --art, the artwork's side: Apple's 461px at 1440px wide, and never taller than the screen leaves room for.
-      className="fixed inset-0 z-[calc(var(--z-contextual-menus)-2)] isolate animate-enter overflow-hidden text-primary [--art:min(32vw,calc(100dvh-330px),720px)] motion-reduce:[animation-name:fade-in] max-md:[--art:min(84vw,calc(100dvh-330px),420px)]"
+      className="fixed inset-0 z-[calc(var(--z-contextual-menus)-2)] isolate animate-enter overflow-y-auto pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] text-primary [--art:min(32vw,calc(100dvh-330px),720px)] motion-reduce:[animation-name:fade-in] max-md:[--art:min(84vw,calc(100dvh-330px),420px)]"
       role="dialog"
       aria-modal="true"
       aria-label="Now Playing"
@@ -252,7 +252,7 @@ export function FullScreenPlayer() {
         </div>
       )}
 
-      <button ref={close} className={`${corner} top-4 left-5`} aria-label="Close" onClick={() => setFullScreen(false)}>
+      <button ref={close} className={`${corner} top-[max(16px,env(safe-area-inset-top,0px))] left-[max(20px,env(safe-area-inset-left,0px))]`} aria-label="Close" onClick={() => setFullScreen(false)}>
         <X size={20} />
       </button>
       {/* The music video's quality, just inside the full-screen button. */}
@@ -261,7 +261,7 @@ export function FullScreenPlayer() {
       )}
       {document.fullscreenEnabled && (
         <button
-          className={`${corner} top-4 right-5`}
+          className={`${corner} top-[max(16px,env(safe-area-inset-top,0px))] right-[max(20px,env(safe-area-inset-right,0px))]`}
           aria-label={browserFullScreen ? 'Exit full screen' : 'Enter full screen'}
           onClick={toggleBrowserFullScreen}
         >

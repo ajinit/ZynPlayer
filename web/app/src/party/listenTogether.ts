@@ -209,7 +209,13 @@ function adoptMembership(base: string, membership: PartyMembership): string {
   return membership.code;
 }
 
+/** Fail before identity lookup or fetch: never send backend requests to the static site. */
+function requirePartyServer(): void {
+  if (!DEFAULT_SERVER) throw new PartyError('not_configured', 'Listen Together is not enabled on this site.');
+}
+
 export async function createParty(options: { maxMembers?: number; autoplayEnabled: boolean }): Promise<string> {
+  requirePartyServer();
   if (useParty.getState().code) await leaveParty();
   const base = idleServer();
   try {
@@ -230,6 +236,7 @@ export async function createParty(options: { maxMembers?: number; autoplayEnable
  * given up once the new one has said yes.
  */
 export async function joinParty(rawCode: string, serverUrl?: string | null): Promise<string> {
+  requirePartyServer();
   const code = cleanCode(rawCode);
   if (!code) throw new PartyError('bad_code', `A party code is ${CODE_LENGTH} letters or digits.`);
   refuseIfRecentlyKicked(code);
@@ -252,6 +259,7 @@ export async function joinParty(rawCode: string, serverUrl?: string | null): Pro
 }
 
 export async function previewParty(rawCode: string, serverUrl?: string | null): Promise<PartyPreview> {
+  requirePartyServer();
   const code = cleanCode(rawCode);
   if (!code) throw new PartyError('bad_code', `A party code is ${CODE_LENGTH} letters or digits.`);
   refuseIfRecentlyKicked(code);
@@ -288,6 +296,7 @@ export async function leaveParty(): Promise<void> {
 
 /** Picks a party back up after a reload, inside the server's grace period. */
 export function resumeSession(): void {
+  if (!DEFAULT_SERVER) return;
   if (useParty.getState().code) return;
   try {
     const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? 'null') as { code: string; token: string; server: string } | null;

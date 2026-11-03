@@ -49,7 +49,9 @@ export default function ListenTogetherPage() {
     <div className={settingsUi.centered}>
       <PageHeader title="Listen Together" />
       <div className={settingsUi.body}>
-        {state.code ? (
+        {!DEFAULT_SERVER ? (
+          <p className={lede} role="status">Listen Together is not enabled on this site. You can still use the rest of the player. A site administrator can enable it by configuring a Listen Together server.</p>
+        ) : state.code ? (
           <InParty />
         ) : inviteCode ? (
           <InviteCard code={inviteCode} server={inviteServer} signedIn={signedIn} />
@@ -145,7 +147,7 @@ function StartOrJoin({ signedIn }: { signedIn: boolean }) {
           />
         </label>
       </section>
-      <p className={settingsUi.footer}>Leave the server empty to use BitChord’s. Anyone joining your party uses the server it’s on.</p>
+      <p className={settingsUi.footer}>Leave the server empty to use this site’s configured server. Anyone joining your party uses the server it’s on.</p>
     </>
   );
 }

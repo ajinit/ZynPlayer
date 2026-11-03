@@ -63,7 +63,7 @@ Then open `http://localhost:5173/extension`. It shows "Installed", with the vers
 | `BITCHORD_STORE_BUILD=1` | extension build | Leaves out the dev `key` for a Chrome Web Store upload |
 | `VITE_EXTENSION_ID_CHROMIUM` | app (`app/.env.local`) | The pinned dev id. Set it for a store-built extension |
 | `VITE_ANDROID_APP_URL` | app | The GitHub releases page |
-| `VITE_PARTY_SERVER_URL` | app (`app/.env.local`, Pages env) | None. The Listen Together server; `vite build` fails without it |
+| `VITE_PARTY_SERVER_URL` | app (`app/.env.local`, Pages env) | None. Optional Listen Together server; absent means the feature is disabled |
 
 ## Deploy (Cloudflare Pages)
 
@@ -72,7 +72,7 @@ Then open `http://localhost:5173/extension`. It shows "Installed", with the vers
 | Root directory | `web` |
 | Build command | `pnpm build:site` |
 | Output directory | `app/dist` |
-| Environment | `NODE_VERSION=22`, `VITE_PARTY_SERVER_URL` |
+| Environment | `NODE_VERSION=22`; optional `VITE_PARTY_SERVER_URL` |
 
 `build:site` packages the extension first, so each deploy publishes the zips and `downloads/extension.json` with the version from `web/extension/package.json`. The Extension page polls that file and offers the update when it's newer than the installed one. Bump that version to make an update show.
 
@@ -82,3 +82,15 @@ Then open `http://localhost:5173/extension`. It shows "Installed", with the vers
 corepack pnpm --dir web -r typecheck
 corepack pnpm --dir web/app build
 ```
+
+## Netlify and mobile browsers
+
+See [Netlify setup](docs/netlify.md) for Codex Cloud deployment steps, and
+[playback compatibility](docs/playback-compatibility.md) for what actually plays.
+`/local` plays user-selected audio without an extension or backend. Files stay
+on the device; codec and background support depend on the browser. The existing
+YouTube player still needs the companion extension.
+
+No Listen Together backend is required to build or use the rest of the site.
+When `VITE_PARTY_SERVER_URL` is absent, its page explains that it is disabled;
+party actions, invite previews, session reconnection and presence make no requests.

@@ -38,9 +38,9 @@
   --web-navigation-width: 260px;
   --body-gutter: 25px;
   --player-pill-height: 56px;
-  --player-bottom-offset: 20px;
+  --player-bottom-offset: calc(20px + env(safe-area-inset-bottom, 0px));
   --side-panel-width: 300px;
-  --mobile-top-bar-height: 52px;
+  --mobile-top-bar-height: calc(52px + env(safe-area-inset-top, 0px));
   --mini-player-height: 52px;
 
   /* ---- Radii ------------------------------------------------------------- */
@@ -142,12 +142,6 @@
 @media (min-width: 1000px) {
   :root {
     --body-gutter: 40px;
-  }
-}
-
-@media (min-width: 484px) and (max-width: 767.31px) {
-  :root {
-    --web-navigation-width: 33.8842975207vw;
   }
 }
 
